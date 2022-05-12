@@ -96,3 +96,40 @@ If you wish to quarantine the rogue pod, label the pod with context:
 kubectl label pod <attacker-app> -n storefront quarantine=true
 ```
 The idea here is that the traffic will get denied at the earlier possible stage
+
+## Securing your hosts:
+
+Automatically register your nodes as Host Endpoints (HEPS). To enable automatic host endpoints, edit the default KubeControllersConfiguration instance, and set ``` spec.controllers.node.hostEndpoint.autoCreate```  to ```true``` for those ```HostEndpoints``` :
+
+```
+kubectl patch kubecontrollersconfiguration default --patch='{"spec": {"controllers": {"node": {"hostEndpoint": {"autoCreate": "Enabled"}}}}}'
+```
+
+Add the label ```kubernetes-host``` to all nodes and their host endpoints:
+```
+kubectl label nodes --all kubernetes-host=  
+```
+This tutorial assumes that you already have a tier called '```host-endpoints```' in Calico Cloud:  
+```
+kubectl apply -f https://raw.githubusercontent.com/tigera-solutions/aws-howdy-parter-calico-cloud/main/policies/node-tier.yaml
+```
+Once the tier is created, Build a policies for your master and worker nodes: <br/>
+<br/>
+
+Master Node:
+```
+kubectl apply -f https://raw.githubusercontent.com/tigera-solutions/aws-howdy-parter-calico-cloud/main/policies/master.yaml
+```
+Worker Node:
+```
+kubectl apply -f https://raw.githubusercontent.com/tigera-solutions/aws-howdy-parter-calico-cloud/main/policies/worker.yaml
+```
+
+#### Label based on node purpose
+To select a specific set of host endpoints (and their corresponding Kubernetes nodes), use a policy selector that selects a label unique to that set of host endpoints. <br/>
+For example, if we want to add the label ```env=master``` to nodes named node1 and node2:
+
+```
+kubectl label node master1 env=master
+kubectl label node worker1 env=worker
+```
