@@ -1,0 +1,13 @@
+apiVersion: projectcalico.org/v3
+kind: StagedNetworkPolicy
+metadata:
+  name: default.default-deny-storefront
+  namespace: default
+spec:
+  tier: default
+  order: 0
+  selector: ''
+  serviceAccountSelector: ''
+  types:
+    - Ingress
+    - Egress
