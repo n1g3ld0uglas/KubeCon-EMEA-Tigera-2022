@@ -97,6 +97,31 @@ kubectl label pod <attacker-app> -n storefront quarantine=true
 ```
 The idea here is that the traffic will get denied at the earlier possible stage
 
+## Introduce Threat Feeds:
+Create the FeodoTracker globalThreatFeed: 
+``` 
+kubectl apply -f https://raw.githubusercontent.com/tigera-solutions/aws-howdy-parter-calico-cloud/main/threatfeed/feodo-tracker.yaml
+```
+Verify the GlobalNetworkSet is configured correctly:
+``` 
+kubectl get globalnetworksets threatfeed.feodo-tracker -o yaml
+``` 
+
+Applies to anything that IS NOT listed with the namespace selector = 'acme' 
+
+```
+kubectl apply -f https://raw.githubusercontent.com/tigera-solutions/aws-howdy-parter-calico-cloud/main/threatfeed/block-feodo.yaml
+```
+
+Create the threat feed for ```KNOWN-MALWARE``` which we can then block with network policy: 
+``` 
+kubectl apply -f https://raw.githubusercontent.com/n1g3ld0uglas/EuroEKSClusterCC/main/malware-ipfeed.yaml
+```
+
+- Build a policy via the web UI to deny traffic going to the threat-feed ```KNOWN-MALWARE``` <br/>
+- Similarly, ensure the policy is ```STAGED``` - since we know the pods are talking to those IP addresses.
+
+
 ## Securing your hosts:
 
 Automatically register your nodes as Host Endpoints (HEPS). To enable automatic host endpoints, edit the default KubeControllersConfiguration instance, and set ``` spec.controllers.node.hostEndpoint.autoCreate```  to ```true``` for those ```HostEndpoints``` :
@@ -454,7 +479,7 @@ Or simply run the below command:
 ```
 kubectl apply -f https://raw.githubusercontent.com/n1g3ld0uglas/EuroAKSWorkshopCC/main/wireguard-metrics.yaml
 ```
-<img width="907" alt="Screenshot 2022-01-26 at 10 52 42" src="https://user-images.githubusercontent.com/82048393/151152259-49252c42-12be-4672-83df-56da84289883.png">
+<img width="1228" alt="Screenshot 2022-01-26 at 11 11 17" src="https://user-images.githubusercontent.com/82048393/151153178-b4f5751b-c03a-4f48-965e-b710ea5e48a4.png">
 
 
 ## Scan image registries for known vulnerabilities
