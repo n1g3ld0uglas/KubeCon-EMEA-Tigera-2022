@@ -25,13 +25,17 @@ kubectl apply -f https://raw.githubusercontent.com/tigera-solutions/aws-howdy-pa
 ```
 Create the Default-Deny Policy:
 ```
-kubectl apply -f https://raw.githubusercontent.com/tigera-solutions/aws-howdy-parter-calico-cloud/main/policies/restricted.yaml
+kubectl apply -f https://raw.githubusercontent.com/n1g3ld0uglas/KubeCon-EMEA-Tigera-2022/main/default-deny.yaml
 ```
+
+- This ```default-deny``` policy is in a ```staged``` mode and also in the wrong ```tier``` <br/>
+- Show how easy it is to drag policies between different tiers. Move the ```default-deny``` policy to the ```product``` tier <br/>
+- To break communication between pods, upgrade the ```default-deny``` policy from ```staged``` to ```enforced```
+
 ## Next Steps
 
-- Use Service Graph to show broken connection between ```frontend``` and ```backend``` pods to the ```logging``` pod
+- Use Service Graph to show broken connection between ```frontend``` and ```backend``` pods to the ```logging``` pod ``` <br/>
 - Use Policy Recommendation to resolve this issue of unwanted denied traffic
-- 
 
 #### Confirm all policies are running:
 ```
