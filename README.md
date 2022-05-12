@@ -315,3 +315,142 @@ kubectl label nodes <node-name> enable-tigera-runtime-security=t
 
 
 ![malware](https://user-images.githubusercontent.com/82048393/166684959-a385610f-2a7e-45f1-bd1f-56d514d86686.png)
+
+## Wireguard In-Transit Encryption:
+
+To begin, you will need a Kubernetes cluster with WireGuard installed on the host operating system.</br>
+https://www.tigera.io/blog/introducing-wireguard-encryption-with-calico/
+```
+sudo yum install kernel-devel-`uname -r` -y
+sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm -y
+sudo curl -o /etc/yum.repos.d/jdoss-wireguard-epel-7.repo https://copr.fedorainfracloud.org/coprs/jdoss/wireguard/repo/epel-7/jdoss-wireguard-epel-7.repo
+sudo yum install wireguard-dkms wireguard-tools -y
+```
+Enable WireGuard encryption across all the nodes using the following command.
+```
+kubectl patch felixconfiguration default --type='merge' -p '{"spec":{"wireguardEnabled":true}}'
+```
+<br/>
+<br/>
+
+Additionally, you may optionally enable host-to-host encryption mode for WireGuard using the following command
+```
+kubectl patch felixconfiguration default --type='merge' -p '{"spec": {"wireguardHostEncryptionEnabled": true}}'
+```
+
+```wireguardHostEncryptionEnabled``` is an experimental flag that extends WireGuard encryption to host-network IP addresses. <br/>
+It is currently only supported on managed clusters deployed on EKS and AKS, where WireGuard cannot be enabled on the cluster’s control-plane node. <br/>
+Enabling this flag while WireGuard is enabled on the control-plane node can lead to a broken cluster, and neworking deadlock. <br/>
+
+<br/>
+<br/>
+
+To verify that the nodes are configured for WireGuard encryption:
+```
+kubectl get node ip-192-168-30-158.eu-west-1.compute.internal -o yaml | grep Wireguard
+```
+Show how this has applied to traffic in-transit:
+```
+sudo wg show
+```
+
+#### Enable WireGuard statistics:
+
+To access wireguard statistics, prometheus stats in Felix configuration should be turned on. <br/>
+A quick way to do this is to enable nodeMetricsPort by apply the below manifest:
+
+```
+kubectl patch installation.operator.tigera.io default --type merge -p '{"spec":{"nodeMetricsPort":9091}}'
+```
+
+Apply the following ```Service```, ```ServiceMonitor``` and ```NetworkPolicy``` manifests:
+
+```
+cat <<EOF | kubectl apply -f -
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: calico-prometheus-metrics
+  namespace: calico-system
+  labels:
+    k8s-app: calico-node
+spec:
+  ports:
+  - name: calico-prometheus-metrics-port
+    port: 9091
+    protocol: TCP
+  selector:
+    k8s-app: calico-node
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  generation: 1
+  labels:
+    team: network-operators
+  name: calico-node-monitor-additional
+  namespace: tigera-prometheus
+spec:
+  endpoints:
+  - bearerTokenSecret:
+      key: ""
+    honorLabels: true
+    interval: 5s
+    port: calico-prometheus-metrics-port
+    scrapeTimeout: 5s
+  namespaceSelector:
+    matchNames:
+    - calico-system
+  selector:
+    matchLabels:
+      k8s-app: calico-node
+---
+apiVersion: crd.projectcalico.org/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    projectcalico.org/tier: allow-tigera
+  name: allow-tigera.prometheus-calico-node-prometheus-metrics-egress
+  namespace: tigera-prometheus
+spec:
+  egress:
+  - action: Allow
+    destination:
+      ports:
+      - 9091
+    protocol: TCP
+    source: {}
+  selector: app == 'prometheus' && prometheus == 'calico-node-prometheus'
+  tier: allow-tigera
+  types:
+  - Egress
+---
+apiVersion: crd.projectcalico.org/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    projectcalico.org/tier: allow-tigera
+  name: allow-tigera.calico-node-prometheus-metrics-ingress
+  namespace: calico-system
+spec:
+  tier: allow-tigera
+  selector: k8s-app == 'calico-node'
+  types:
+  - Ingress
+  ingress:
+  - action: Allow
+    protocol: TCP
+    source:
+      selector: app == 'prometheus' && prometheus == 'calico-node-prometheus'
+    destination:
+      ports:
+      - 9091
+EOF
+```
+
+Or simply run the below command:
+
+```
+kubectl apply -f https://raw.githubusercontent.com/n1g3ld0uglas/EuroAKSWorkshopCC/main/wireguard-metrics.yaml
+```
