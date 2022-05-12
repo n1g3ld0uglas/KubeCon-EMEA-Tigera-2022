@@ -1,5 +1,12 @@
 # KubeCon-EMEA-Tigera-2022
 
+Since the demos are fairly short, it makes sense that we flush the data in the UI a little quicker:
+``` 
+kubectl patch felixconfiguration.p default -p '{"spec":{"flowLogsFlushInterval":"10s"}}'
+kubectl patch felixconfiguration.p default -p '{"spec":{"dnsLogsFlushInterval":"10s"}}'
+kubectl patch felixconfiguration.p default -p '{"spec":{"flowLogsFileAggregationKindForAllowed":1}}'
+```
+
 If your cluster does not have applications, introduce one:
 ```
 kubectl apply -f https://installer.calicocloud.io/storefront-demo.yaml
@@ -34,7 +41,7 @@ kubectl apply -f https://raw.githubusercontent.com/n1g3ld0uglas/KubeCon-EMEA-Tig
 
 ## Next Steps
 
-- Use Service Graph to show broken connection between ```frontend``` and ```backend``` pods to the ```logging``` pod ``` <br/>
+- Use Service Graph to show broken connection between ```frontend``` and ```backend``` pods to the ```logging``` pod <br/>
 - Use Policy Recommendation to resolve this issue of unwanted denied traffic
 
 #### Confirm all policies are running:
@@ -58,7 +65,29 @@ This application will perform TCP Port Scanning on pods in different namespaces
 ```
 kubectl apply -f https://installer.calicocloud.io/rogue-demo.yaml -n storefront
 ``` 
-Quarantine the Rogue Application: 
+
+- Go back to the service graph to confirm the unusual flows created by the attacker app (search <5 mins in the filter view) <br/>
+- This is fine as a manual process, but it makes sense for us to alert on specific unusual behaviours in our flows:
+
+Alert on ```lateral access``` to a specific namespace:
+```
+kubectl apply -f https://raw.githubusercontent.com/tigera-solutions/aws-howdy-parter-calico-cloud/main/alerting/lateral-access.yaml
+``` 
+
+Introduce a test application that already has the label of ```security=strict```:
+```
+kubectl apply -f https://raw.githubusercontent.com/tigera-solutions/aws-howdy-parter-calico-cloud/main/workloads/test.yaml
+```
+
+While we are at it, we should secure those new workloads via security policies:
+```
+kubectl apply -f https://raw.githubusercontent.com/tigera-solutions/aws-howdy-parter-calico-cloud/main/policies/test-app.yaml
+```
+- The goal here is to be notified when there is unusual behaviour ahead of time. <br/>
+- The user can investigate using automation scripting to label the source attacker pod with the key-pair values ```quarantine=true``` <br/>
+- Alternatively, we can do this manually - as we will demonstrate later in the repository.
+
+Create a ```quarantine policy``` in the ```tigera-security``` tier: 
 ```
 kubectl apply -f https://raw.githubusercontent.com/tigera-solutions/aws-howdy-parter-calico-cloud/main/policies/quarantine.yaml
 ```
